@@ -484,11 +484,11 @@ python test_endpoint.py --endpoint-name hunter-behavioral-threat
 | Property | Value |
 |---|---|
 | **EKS Cluster** | `zyberpol-east` |
-| **Namespace** | `default` |
+| **Namespace** | `zyberpol-ml` (dedicated ML namespace with ResourceQuota + NetworkPolicy) |
 | **Deployment** | `hunter-behavioral-threat` |
 | **Replicas** | 1 |
 | **Service Type** | LoadBalancer (internal NLB) |
-| **LoadBalancer Hostname** | `k8s-default-hunterbe-eeedce4623-94e918cc7b413e88.elb.us-east-1.amazonaws.com` |
+| **LoadBalancer Hostname** | `k8s-zyberpol-hunterbe-f5cad87a8a-1c8e87d463d118e5.elb.us-east-1.amazonaws.com` |
 | **Service Port** | 80 (target: 8080) |
 | **Status** | Running (1/1 Ready) |
 
@@ -552,10 +552,10 @@ kubectl apply -f hunter_eks_deploy/k8s/deployment.yaml
 kubectl apply -f hunter_eks_deploy/k8s/service.yaml
 
 # 4. Wait for rollout
-kubectl rollout status deployment/hunter-behavioral-threat
+kubectl rollout status deployment/hunter-behavioral-threat -n zyberpol-ml
 
 # 5. Test (via port-forward since NLB is internal)
-kubectl port-forward svc/hunter-behavioral-threat 8081:80
+kubectl port-forward svc/hunter-behavioral-threat 8081:80 -n zyberpol-ml
 curl http://localhost:8081/health
 curl -X POST http://localhost:8081/predict \
   -H "Content-Type: application/json" \
@@ -579,9 +579,9 @@ Same as SageMaker — both serve the identical model with the same API:
 | Endpoint | Platform | URL/Name | Access |
 |---|---|---|---|
 | Hunter ML (SageMaker) | SageMaker | `hunter-behavioral-threat` | Via `boto3 sagemaker-runtime invoke_endpoint` |
-| Hunter ML (EKS) | EKS | `k8s-default-hunterbe-eeedce4623-94e918cc7b413e88.elb.us-east-1.amazonaws.com` | Internal NLB (VPC only) |
+| Hunter ML (EKS) | EKS (`zyberpol-ml`) | `k8s-zyberpol-hunterbe-f5cad87a8a-1c8e87d463d118e5.elb.us-east-1.amazonaws.com` | Internal NLB (VPC only) |
 | Wolf Pack (SageMaker) | SageMaker | `wolfpack-trust-score` | Via `boto3 sagemaker-runtime invoke_endpoint` |
-| Wolf Pack (EKS) | EKS | Via `wolfpack-trust-score` K8s service | Internal NLB (VPC only) |
+| Wolf Pack (EKS) | EKS (`zyberpol-ml`) | `k8s-zyberpol-wolfpack-0c267a7d53-c85f54cf1b9e1fd8.elb.us-east-1.amazonaws.com` | Internal NLB (VPC only) |
 
 ### AWS Resources
 
@@ -716,12 +716,12 @@ nats-py       # For NATS Mifal Bus integration
 # SageMaker
 aws sagemaker describe-endpoint --endpoint-name hunter-behavioral-threat --region us-east-1 --query 'EndpointStatus'
 
-# EKS
-kubectl get deployment hunter-behavioral-threat
-kubectl get pods -l app=hunter-behavioral-threat
-kubectl logs -l app=hunter-behavioral-threat
+# EKS (all ML workloads are in namespace zyberpol-ml)
+kubectl get deployment hunter-behavioral-threat -n zyberpol-ml
+kubectl get pods -l app=hunter-behavioral-threat -n zyberpol-ml
+kubectl logs -l app=hunter-behavioral-threat -n zyberpol-ml
 
 # Port-forward for testing (EKS NLB is internal)
-kubectl port-forward svc/hunter-behavioral-threat 8081:80
+kubectl port-forward svc/hunter-behavioral-threat 8081:80 -n zyberpol-ml
 curl http://localhost:8081/health
 ```
